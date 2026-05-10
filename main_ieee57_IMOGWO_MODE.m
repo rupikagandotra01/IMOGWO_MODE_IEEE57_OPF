@@ -1,4 +1,4 @@
-clc
+ clc
 clear all
 close all
 warning off;
@@ -16,23 +16,19 @@ Generator_Power_MW=gendata(:,2);
 %% DG AND FACTS LIMITS
 xfmin=0.2;
 xfmax=0.8;
-dgmax=100;
-vvrmin=0.9;
-vvrmax=1.05;
-
-delvrmin=0;
-delvrmax=180;
-
 vcrmin=0.9;
 vcrmax=1.05;
 
 delcrmin=0;
 delcrmax=180;
 
-dgmin=30;
+dgmin=10;
+dgmax=500;
+
 %% SEARCH SPACE
 min_val1=1;
 max_val1=80;
+
 min_val2=2;
 max_val2=50;
 
@@ -49,6 +45,7 @@ data_pass_to_loadflow{11}=costcoeff;
 
 min_val22=costcoeff(:,2);
 max_val22=costcoeff(:,3);
+
 %% LOAD LEVEL
 for load_percent=[100]
 
@@ -60,16 +57,16 @@ for load_percent=[100]
 
     busdata(:,3)=busdata(:,3)*load_over;
 
-    maxdglimit=sum(busdata(:,3));
+    maxdglimit=500;
 
-    dgmin=30;
+    dgmin=10;
     dgmax=maxdglimit;
 
     min_val3=dgmin;
     max_val3=dgmax;
-
-    %% BASE LOAD FLOW
+     %% BASE LOAD FLOW
     finalout=load_flow_normal(data_pass_to_loadflow);
+
     voltage_normal=finalout{9};
     voltage_angle=finalout{12};
     admittance_data=finalout{13};
@@ -86,10 +83,30 @@ for load_percent=[100]
         %% ================= IMOGWO ====================
 
         IMOGWO_results=[];
-for run=1:no_of_runs
-        end
 
-        %% WELCH T-TEST
+        for run=1:no_of_runs
+
+            [result_final,final_conv_IMOGWO,pdata2]=...
+                IMOGWO_algorithm(nbus,int_pop_size,...
+                no_of_iter,...
+                min_val22,max_val22,...
+                min_val1,max_val1,...
+                min_val2,max_val2,...
+                min_val3,max_val3,...
+                xfmin,xfmax,...
+                vvrmin,vvrmax,...
+                delvrmin,delvrmax,...
+                vcrmin,vcrmax,...
+                delcrmin,delcrmax,...
+                data_pass_to_loadflow);
+
+            finalout=load_flow_dgfacts(result_final,...
+                data_pass_to_loadflow);
+
+            IMOGWO_results(run)=finalout{7};
+
+        end
+         %% ================= MODE ====================
 
         [h,p,ci,stats]=ttest2(IMOGWO_results,...
             MODE_results,...
@@ -151,4 +168,6 @@ for run=1:no_of_runs
         disp(Statistical_Result);
 
     end
+
+end
  
