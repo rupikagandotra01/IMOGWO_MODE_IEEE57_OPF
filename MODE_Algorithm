@@ -1,0 +1,103 @@
+function [bestsol,final_conv,pdata]=MODE_algorithm(...
+    nbus,int_pop_size,no_of_iter,...
+    min_val22,max_val22,...val1,...
+    min_val2,max_val2,...
+    min_val3,max_val3,...
+    xfmin,xfmax,...
+    vvrmin,vvrmax,...
+    delvrmin,delvrmax,...
+    vcrmin,vcrmax,...delcrmin,delcrmax,...
+    data_pass_to_loadflow)
+pop_size=int_pop_size;
+
+dim=length(min_val22)+5;
+
+lb=[min_val22' min_val1 min_val2 min_val3 xfmin];
+ub=[max_val22' max_val1 max_val2 max_val3 xfmax];
+
+F=0.5;
+CR=0.8;
+
+population=zeros(pop_size,dim);
+
+for i=1:pop_size
+    for j=1:dim
+        population(i,j)=lb(j)+rand()*(ub(j)-lb(j));
+    end
+end
+
+fitness=zeros(pop_size,2);
+
+for i=1:pop_size
+
+    [f1,f2]=multiobjective_function(...
+        population(i,:),data_pass_to_loadflow);
+fitness(i,:)=[f1 f2];
+
+end
+
+for iter=1:no_of_iter
+
+    offspring=zeros(size(population));
+    offspring_fit=zeros(size(fitness));
+
+    for i=1:pop_size
+
+        idx=randperm(pop_size,3);
+
+        r1=idx(1);
+        r2=idx(2);
+        r3=idx(3);
+
+        mutant=population(r1,:)+...
+            F*(population(r2,:)-population(r3,:));
+
+        mutant=max(mutant,lb);
+        mutant=min(mutant,ub);
+
+        trial=population(i,:);
+
+        jrand=randi(dim);
+
+        for j=1:dim
+
+            if rand()<=CR || j==jrand
+                trial(j)=mutant(j);
+            end
+
+        end
+
+        [tf1,tf2]=multiobjective_function(...
+            trial,data_pass_to_loadflow);
+
+        trial_fit=[tf1 tf2];
+
+        target_fit=fitness(i,:);
+if dominates(trial_fit,target_fit)
+            offspring(i,:)=trial;
+            offspring_fit(i,:)=trial_fit;
+        else
+            offspring(i,:)=population(i,:);
+            offspring_fit(i,:)=fitness(i,:);
+        end
+
+    end
+
+    combined=[population
+              offspring];
+
+    combined_fit=[fitness
+                  offspring_fit];
+
+    rank=non_dominated_sorting(combined_fit);
+
+    [~,idx]=sort(rank);
+
+    population=combined(idx(1:pop_size),:);
+    fitness=combined_fit(idx(1:pop_size),:);
+
+    final_conv(iter)=fitness(1,1);
+end
+
+bestsol=population(1,:);
+pdata=fitness;
